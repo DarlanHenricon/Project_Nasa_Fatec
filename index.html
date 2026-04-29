@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>ASTEROID DRIFT — Space Survival</title>
+<style>
+  /* =========================================================
+     RESET & BASE
+  ========================================================= */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue:   #3b82f6;
+    --purple: #8b5cf6;
+    --cyan:   #22d3ee;
+    --bg0:    #000000;
+    --bg1:    #0a0f1f;
+    --bg2:    #0d1530;
+    --text:   #e2e8f0;
+    --dim:    #94a3b8;
+    --glow-blue:   0 0 8px #3b82f6, 0 0 24px #3b82f660;
+    --glow-purple: 0 0 8px #8b5cf6, 0 0 24px #8b5cf660;
+    --glow-cyan:   0 0 8px #22d3ee, 0 0 24px #22d3ee60;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--bg0);
+    font-family: 'Courier New', 'Lucida Console', monospace;
+    color: var(--text);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* =========================================================
+     SCREENS (shared layout)
+  ========================================================= */
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 10;
+    background: radial-gradient(ellipse at 50% 30%, var(--bg2) 0%, var(--bg1) 50%, var(--bg0) 100%);
+    transition: opacity .4s ease;
+  }
+  .screen.hidden { opacity: 0; pointer-events: none; }
+
+  /* =========================================================
+     STARFIELD CANVAS (background all screens)
+  ========================================================= */
+  #bgCanvas {
+    position: fixed; inset: 0; z-index: 0;
+  }
+
+  /* =========================================================
+     GAME CANVAS
+  ========================================================= */
+  #gameCanvas {
+    position: fixed; inset: 0; z-index: 1;
+    display: none;
+    touch-action: none;
+  }
+
+  /* =========================================================
+     HUD
+  ========================================================= */
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 5;
+    display: none;
+    padding: 10px 16px;
+    background: linear-gradient(to bottom, rgba(10,15,31,.92) 0%, transparent 100%);
+    pointer-events: none;
+  }
+  .hud-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .hud-box {
+    display: flex; flex-direction: column;
+    align-items: center;
+    background: rgba(59,130,246,.08);
+    border: 1px solid rgba(59,130,246,.25);
+    border-radius: 8px;
+    padding: 4px 14px;
+    min-width: 90px;
+  }
+  .hud-label {
+    font-size: 9px; letter-spacing: .15em; text-transform: uppercase;
+    color: var(--cyan); opacity: .7;
+  }
+  .hud-value {
+    font-size: 18px; font-weight: 700;
+    color: var(--blue);
+    text-shadow: var(--glow-blue);
+    letter-spacing: .05em;
+  }
+  .hud-name {
+    font-size: 11px; color: var(--purple);
+    text-shadow: var(--glow-purple);
+    letter-spacing: .08em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 120px;
+  }
+
+  /* =========================================================
+     START SCREEN
+  ========================================================= */
+  #startScreen {
+    gap: 0;
+    padding: 24px 20px;
+  }
+
+  .logo-wrap {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .logo-eyebrow {
+    font-size: 10px; letter-spacing: .3em; text-transform: uppercase;
+    color: var(--cyan); opacity: .6;
+    margin-bottom: 6px;
+  }
+  .logo-title {
+    font-size: clamp(28px, 8vw, 52px);
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, var(--cyan) 0%, var(--blue) 45%, var(--purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 18px #3b82f680);
+    line-height: 1;
+  }
+  .logo-sub {
+    font-size: 11px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--dim); margin-top: 8px;
+  }
+
+  /* Decorative line */
+  .sep {
+    width: 120px; height: 1px;
+    background: linear-gradient(to right, transparent, var(--cyan), transparent);
+    margin: 24px auto;
+    box-shadow: 0 0 8px var(--cyan);
+  }
+
+  .form-card {
+    width: 100%; max-width: 340px;
+    background: rgba(13,21,48,.8);
+    border: 1px solid rgba(59,130,246,.2);
+    border-radius: 16px;
+    padding: 28px 24px;
+    box-shadow: 0 0 40px rgba(59,130,246,.08), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+
+  .field-label {
+    display: block;
+    font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--cyan); margin-bottom: 10px;
+  }
+
+  .name-input {
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(59,130,246,.3);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: inherit; font-size: 16px;
+    outline: none;
+    caret-color: var(--cyan);
+    transition: border-color .25s, box-shadow .25s;
+    -webkit-appearance: none;
+  }
+  .name-input:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(34,211,238,.15), var(--glow-cyan);
+  }
+  .name-input::placeholder { color: rgba(148,163,184,.35); }
+
+  .btn-start {
+    width: 100%; margin-top: 20px;
+    padding: 16px;
+    border: none; border-radius: 10px;
+    cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 700;
+    letter-spacing: .15em; text-transform: uppercase;
+    background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
+    color: #fff;
+    box-shadow: 0 0 24px rgba(139,92,246,.35), 0 4px 16px rgba(0,0,0,.4);
+    transition: transform .15s, box-shadow .15s;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 52px;
+  }
+  .btn-start:active { transform: scale(.97); box-shadow: 0 0 12px rgba(139,92,246,.2); }
+
+  .hint {
+    text-align: center; margin-top: 20px;
+    font-size: 11px; color: var(--dim); letter-spacing: .05em;
+    opacity: .55;
+  }
+
+  /* =========================================================
+     GAME OVER SCREEN
+  ========================================================= */
+  #gameoverScreen { gap: 0; padding: 24px 20px; }
+
+  .go-title {
+    font-size: clamp(32px, 9vw, 58px); font-weight: 900;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: #ff4444;
+    text-shadow: 0 0 12px #ff4444, 0 0 40px #ff444460;
+    margin-bottom: 4px;
+  }
+  .go-sub { font-size: 11px; letter-spacing: .2em; color: var(--dim); margin-bottom: 32px; }
+
+  .score-card {
+    width: 100%; max-width: 320px;
+    background: rgba(13,21,48,.85);
+    border: 1px solid rgba(59,130,246,.2);
+    border-radius: 16px; padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .score-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+  .score-row:last-child { border-bottom: none; }
+  .score-lbl { font-size: 10px; letter-spacing: .15em; text-transform: uppercase; color: var(--dim); }
+  .score-val { font-size: 22px; font-weight: 700; color: var(--blue); text-shadow: var(--glow-blue); }
+  .score-val.best { color: var(--cyan); text-shadow: var(--glow-cyan); }
+  .score-val.name { font-size: 14px; color: var(--purple); text-shadow: var(--glow-purple); }
+
+  .btn-group { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; }
+
+  .btn-restart {
+    padding: 16px; border: none; border-radius: 10px; cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 700;
+    letter-spacing: .15em; text-transform: uppercase;
+    background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
+    color: #fff;
+    box-shadow: 0 0 24px rgba(59,130,246,.3), 0 4px 16px rgba(0,0,0,.4);
+    transition: transform .15s;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 52px;
+  }
+  .btn-restart:active { transform: scale(.97); }
+
+  .btn-menu {
+    padding: 14px; border-radius: 10px; cursor: pointer;
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    letter-spacing: .12em; text-transform: uppercase;
+    background: transparent;
+    border: 1px solid rgba(59,130,246,.3);
+    color: var(--dim);
+    transition: border-color .2s, color .2s;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 48px;
+  }
+  .btn-menu:active { border-color: var(--cyan); color: var(--cyan); }
+
+  /* =========================================================
+     MOBILE CONTROLS (visible hint)
+  ========================================================= */
+  #mobileHint {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    z-index: 6;
+    font-size: 10px; letter-spacing: .15em; text-transform: uppercase;
+    color: var(--dim); opacity: .4;
+    pointer-events: none;
+    display: none;
+  }
+
+  /* =========================================================
+     RESPONSIVE
+  ========================================================= */
+  @media (max-height: 600px) {
+    .logo-wrap { margin-bottom: 18px; }
+    .sep { margin: 14px auto; }
+    .form-card { padding: 18px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Background starfield (always visible) -->
+<canvas id="bgCanvas"></canvas>
+
+<!-- ===================== START SCREEN ===================== -->
+<div class="screen" id="startScreen">
+  <div class="logo-wrap">
+    <div class="logo-eyebrow">// deep space survival //</div>
+    <div class="logo-title">ASTEROID<br>DRIFT</div>
+    <div class="logo-sub">Navigate the debris field</div>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="form-card">
+    <label class="field-label" for="playerName">► Identificação do piloto</label>
+    <input
+      class="name-input"
+      id="playerName"
+      type="text"
+      placeholder="Digite seu nome..."
+      maxlength="20"
+      autocomplete="off"
+      autocorrect="off"
+      spellcheck="false"
+    >
+    <button class="btn-start" id="btnStart">⚡ INICIAR MISSÃO</button>
+  </div>
+  <div class="hint">Arraste para mover · Sobreviva o máximo possível</div>
+</div>
+
+<!-- ===================== GAME CANVAS ===================== -->
+<canvas id="gameCanvas"></canvas>
+
+<!-- ===================== HUD ===================== -->
+<div id="hud">
+  <div class="hud-row">
+    <div class="hud-box">
+      <div class="hud-label">Score</div>
+      <div class="hud-value" id="hudScore">0</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+      <div class="hud-name" id="hudName">PILOT</div>
+      <div style="font-size:9px;color:var(--dim);letter-spacing:.08em;opacity:.5">ASTEROID DRIFT</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">Best</div>
+      <div class="hud-value" id="hudBest" style="color:var(--cyan);text-shadow:var(--glow-cyan)">0</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MOBILE HINT ===================== -->
+<div id="mobileHint">◄ ARRASTE PARA MOVER ►</div>
+
+<!-- ===================== GAME OVER SCREEN ===================== -->
+<div class="screen hidden" id="gameoverScreen">
+  <div class="go-title">GAME OVER</div>
+  <div class="go-sub">// missão encerrada //</div>
+
+  <div class="score-card">
+    <div class="score-row">
+      <span class="score-lbl">Piloto</span>
+      <span class="score-val name" id="goName">—</span>
+    </div>
+    <div class="score-row">
+      <span class="score-lbl">Pontuação</span>
+      <span class="score-val" id="goScore">0</span>
+    </div>
+    <div class="score-row">
+      <span class="score-lbl">Melhor</span>
+      <span class="score-val best" id="goBest">0</span>
+    </div>
+  </div>
+
+  <div class="btn-group">
+    <button class="btn-restart" id="btnRestart">⚡ JOGAR NOVAMENTE</button>
+    <button class="btn-menu" id="btnMenu">← VOLTAR AO MENU</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ASTEROID DRIFT — Complete Game Engine
+   ============================================================ */
+
+// ─── Utility ────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const rand = (a, b) => Math.random() * (b - a) + a;
+const randInt = (a, b) => Math.floor(rand(a, b + 1));
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const PI2 = Math.PI * 2;
+
+// ─── Persistent State ───────────────────────────────────────
+const LS = {
+  get best()  { return parseInt(localStorage.getItem('ad_best') || '0'); },
+  set best(v) { localStorage.setItem('ad_best', v); },
+  get name()  { return localStorage.getItem('ad_name') || ''; },
+  set name(v) { localStorage.setItem('ad_name', v); },
+};
+
+// ─── Elements ───────────────────────────────────────────────
+const bgCanvas    = $('bgCanvas');
+const bgCtx       = bgCanvas.getContext('2d');
+const gameCanvas  = $('gameCanvas');
+const gCtx        = gameCanvas.getContext('2d');
+const startScreen = $('startScreen');
+const goScreen    = $('gameoverScreen');
+const hud         = $('hud');
+const mobileHint  = $('mobileHint');
+const playerInput = $('playerName');
+
+// ─── Stars (background parallax) ────────────────────────────
+const STAR_LAYERS = [
+  { count: 120, speed: 0.2, size: .8, alpha: .35 },
+  { count: 80,  speed: 0.5, size: 1.4, alpha: .55 },
+  { count: 40,  speed: 1.0, size: 2.0, alpha: .75 },
+];
+let stars = [];
+
+function initStars() {
+  stars = [];
+  STAR_LAYERS.forEach(layer => {
+    for (let i = 0; i < layer.count; i++) {
+      stars.push({
+        x: rand(0, bgCanvas.width),
+        y: rand(0, bgCanvas.height),
+        speed: layer.speed,
+        size: layer.size,
+        alpha: layer.alpha * rand(.6, 1),
+        twinkle: rand(0, PI2),
+      });
+    }
+  });
+}
+
+let globalTime = 0;
+
+function updateStars(dt, scroll) {
+  stars.forEach(s => {
+    s.y += s.speed * scroll * dt * 60;
+    s.twinkle += dt * 1.5;
+    if (s.y > bgCanvas.height + 4) {
+      s.y = -4;
+      s.x = rand(0, bgCanvas.width);
+    }
+  });
+}
+
+function drawBg() {
+  // Deep space gradient
+  const grad = bgCtx.createLinearGradient(0, 0, 0, bgCanvas.height);
+  grad.addColorStop(0,   '#000008');
+  grad.addColorStop(.4,  '#050a1a');
+  grad.addColorStop(1,   '#000000');
+  bgCtx.fillStyle = grad;
+  bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+  // Stars
+  stars.forEach(s => {
+    const tw = .7 + .3 * Math.sin(s.twinkle);
+    bgCtx.globalAlpha = s.alpha * tw;
+    bgCtx.fillStyle = '#ffffff';
+    bgCtx.beginPath();
+    bgCtx.arc(s.x, s.y, s.size, 0, PI2);
+    bgCtx.fill();
+  });
+  bgCtx.globalAlpha = 1;
+}
+
+// ─── Nebula (static, beautiful bg decoration) ───────────────
+function drawNebulae() {
+  const W = bgCanvas.width, H = bgCanvas.height;
+  const nebulae = [
+    { x: W*.25, y: H*.2,  r: W*.35, c1: '#3b82f610', c2: 'transparent' },
+    { x: W*.8,  y: H*.6,  r: W*.28, c1: '#8b5cf612', c2: 'transparent' },
+    { x: W*.5,  y: H*.85, r: W*.32, c1: '#22d3ee0a', c2: 'transparent' },
+  ];
+  nebulae.forEach(n => {
+    const g = bgCtx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r);
+    g.addColorStop(0, n.c1);
+    g.addColorStop(1, n.c2);
+    bgCtx.fillStyle = g;
+    bgCtx.beginPath();
+    bgCtx.arc(n.x, n.y, n.r, 0, PI2);
+    bgCtx.fill();
+  });
+}
+
+// ─── Game State ─────────────────────────────────────────────
+let gameState = 'menu'; // 'menu' | 'playing' | 'dead'
+let playerName = '';
+let score = 0;
+let bestScore = 0;
+let gameTime = 0;
+let lastTS = 0;
+let animFrame = null;
+
+// ─── Player Asteroid ────────────────────────────────────────
+const PLAYER = {
+  x: 0, y: 0,
+  radius: 22,
+  targetX: 0, targetY: 0,
+  vx: 0, vy: 0,
+  rotation: 0, rotSpeed: .8,
+  alive: true,
+  trail: [],     // glow trail positions
+  shakeX: 0, shakeY: 0,
+};
+
+function initPlayer() {
+  PLAYER.x = gameCanvas.width / 2;
+  PLAYER.y = gameCanvas.height * .65;
+  PLAYER.targetX = PLAYER.x;
+  PLAYER.targetY = PLAYER.y;
+  PLAYER.vx = 0; PLAYER.vy = 0;
+  PLAYER.rotation = 0;
+  PLAYER.alive = true;
+  PLAYER.trail = [];
+  PLAYER.shakeX = 0; PLAYER.shakeY = 0;
+}
+
+// Asteroid shape vertices (fixed per-session)
+let asteroidVerts = [];
+function genAsteroidShape(n, r) {
+  const v = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * PI2;
+    const rr = r * rand(.72, 1.14);
+    v.push({ a, r: rr });
+  }
+  return v;
+}
+
+// ─── Debris (obstacles) ─────────────────────────────────────
+let debris = [];
+let debrisTimer = 0;
+
+function spawnDebris() {
+  const W = gameCanvas.width;
+  const speed = 2.5 + gameTime * 0.7;  // escalates over time
+  const types = ['rock', 'shard', 'chunk'];
+  const type = types[randInt(0, 2)];
+
+  // Spawn in top area, random X, sometimes in clusters
+  const count = Math.random() < 0.15 ? randInt(2, 4) : 1;
+  const baseX = rand(30, W - 30);
+
+  for (let i = 0; i < count; i++) {
+    const r = rand(8, 24);
+    debris.push({
+      x: baseX + (i * rand(-50, 50)),
+      y: -r - rand(0, 80),
+      vx: rand(-1.2, 1.2),
+      vy: speed * rand(.8, 1.2),
+      radius: r,
+      rotation: rand(0, PI2),
+      rotSpeed: rand(-.04, .04),
+      type,
+      verts: genAsteroidShape(randInt(6, 9), r),
+      hue: Math.random() < .2 ? 'cyan' : Math.random() < .3 ? 'purple' : 'grey',
+    });
+  }
+}
+
+function spawnInterval() {
+  // Starts at 90 frames, shrinks to ~25
+  return Math.max(25, 90 - gameTime * 18);
+}
+
+// ─── Particles (collision explosion) ────────────────────────
+let particles = [];
+
+function explode(x, y) {
+  for (let i = 0; i < 55; i++) {
+    const angle = rand(0, PI2);
+    const speed = rand(1.5, 9);
+    const colors = ['#ff4444','#ff8800','#ffcc00','#ff44aa','#ffffff'];
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: rand(.018, .04),
+      size: rand(1.5, 5),
+      color: colors[randInt(0, colors.length - 1)],
+    });
+  }
+  // Neon rings
+  for (let i = 0; i < 3; i++) {
+    particles.push({
+      x, y, vx: 0, vy: 0,
+      life: 1, decay: .025,
+      size: 5 + i * 12,
+      color: i === 0 ? '#22d3ee' : i === 1 ? '#8b5cf6' : '#3b82f6',
+      ring: true, ringR: 5 + i * 12,
+    });
+  }
+}
+
+// ─── Controls ───────────────────────────────────────────────
+let isDragging = false;
+let dragOffsetX = 0, dragOffsetY = 0;
+let keys = {};
+
+// Touch
+gameCanvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (!PLAYER.alive) return;
+  const t = e.touches[0];
+  isDragging = true;
+  dragOffsetX = PLAYER.x - t.clientX;
+  dragOffsetY = PLAYER.y - t.clientY;
+}, { passive: false });
+
+gameCanvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!isDragging) return;
+  const t = e.touches[0];
+  const W = gameCanvas.width, H = gameCanvas.height;
+  PLAYER.targetX = clamp(t.clientX + dragOffsetX, PLAYER.radius, W - PLAYER.radius);
+  PLAYER.targetY = clamp(t.clientY + dragOffsetY, PLAYER.radius, H - PLAYER.radius);
+}, { passive: false });
+
+gameCanvas.addEventListener('touchend', () => { isDragging = false; });
+
+// Mouse
+gameCanvas.addEventListener('mousedown', e => {
+  if (!PLAYER.alive) return;
+  isDragging = true;
+  dragOffsetX = PLAYER.x - e.clientX;
+  dragOffsetY = PLAYER.y - e.clientY;
+});
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const W = gameCanvas.width, H = gameCanvas.height;
+  PLAYER.targetX = clamp(e.clientX + dragOffsetX, PLAYER.radius, W - PLAYER.radius);
+  PLAYER.targetY = clamp(e.clientY + dragOffsetY, PLAYER.radius, H - PLAYER.radius);
+});
+window.addEventListener('mouseup', () => { isDragging = false; });
+
+// Keyboard
+window.addEventListener('keydown', e => { keys[e.key] = true; });
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+function handleKeyboard(dt) {
+  const spd = 280;
+  if (keys['ArrowLeft']  || keys['a']) PLAYER.targetX -= spd * dt;
+  if (keys['ArrowRight'] || keys['d']) PLAYER.targetX += spd * dt;
+  if (keys['ArrowUp']    || keys['w']) PLAYER.targetY -= spd * dt;
+  if (keys['ArrowDown']  || keys['s']) PLAYER.targetY += spd * dt;
+  const W = gameCanvas.width, H = gameCanvas.height;
+  PLAYER.targetX = clamp(PLAYER.targetX, PLAYER.radius, W - PLAYER.radius);
+  PLAYER.targetY = clamp(PLAYER.targetY, PLAYER.radius, H - PLAYER.radius);
+}
+
+// ─── Collision ───────────────────────────────────────────────
+function checkCollision() {
+  for (const d of debris) {
+    const dx = PLAYER.x - d.x;
+    const dy = PLAYER.y - d.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < PLAYER.radius * .75 + d.radius * .75) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// ─── Draw Helpers ────────────────────────────────────────────
+function drawAsteroidShape(ctx, verts, x, y, rot, glowColor, glowStrength) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+
+  // Glow
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = glowStrength;
+
+  ctx.beginPath();
+  verts.forEach((v, i) => {
+    const px = Math.cos(v.a) * v.r;
+    const py = Math.sin(v.a) * v.r;
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  });
+  ctx.closePath();
+  ctx.restore();
+}
+
+function drawPlayer(ctx) {
+  // Trail
+  PLAYER.trail.forEach((t, i) => {
+    const alpha = (i / PLAYER.trail.length) * .35;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#22d3ee';
+    ctx.shadowColor = '#22d3ee';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, PLAYER.radius * (i / PLAYER.trail.length) * .6, 0, PI2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+
+  // Player body — neon asteroid
+  ctx.save();
+  ctx.translate(PLAYER.x, PLAYER.y);
+  ctx.rotate(PLAYER.rotation);
+
+  // Outer glow aura
+  const aura = ctx.createRadialGradient(0, 0, PLAYER.radius * .5, 0, 0, PLAYER.radius * 1.8);
+  aura.addColorStop(0, 'rgba(59,130,246,.18)');
+  aura.addColorStop(1, 'transparent');
+  ctx.fillStyle = aura;
+  ctx.beginPath();
+  ctx.arc(0, 0, PLAYER.radius * 1.8, 0, PI2);
+  ctx.fill();
+
+  // Rock body fill
+  ctx.shadowColor = '#3b82f6';
+  ctx.shadowBlur = 18;
+  const bodyGrad = ctx.createRadialGradient(-4, -4, 2, 0, 0, PLAYER.radius);
+  bodyGrad.addColorStop(0, '#3a4a6a');
+  bodyGrad.addColorStop(.6, '#1e2840');
+  bodyGrad.addColorStop(1, '#0d1530');
+
+  ctx.beginPath();
+  asteroidVerts.forEach((v, i) => {
+    const px = Math.cos(v.a) * v.r;
+    const py = Math.sin(v.a) * v.r;
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  });
+  ctx.closePath();
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // Neon edge
+  ctx.shadowColor = '#22d3ee';
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = '#22d3ee';
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+
+  // Inner highlight
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,.12)';
+  ctx.lineWidth = .8;
+  ctx.beginPath();
+  asteroidVerts.forEach((v, i) => {
+    const px = Math.cos(v.a) * v.r * .65;
+    const py = Math.sin(v.a) * v.r * .65;
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  });
+  ctx.closePath();
+  ctx.stroke();
+
+  ctx.restore();
+  ctx.shadowBlur = 0;
+}
+
+function drawDebris(ctx) {
+  debris.forEach(d => {
+    ctx.save();
+    ctx.translate(d.x, d.y);
+    ctx.rotate(d.rotation);
+
+    let fillColor, glowColor;
+    if (d.hue === 'cyan')   { fillColor = '#0e3040'; glowColor = '#22d3ee'; }
+    else if (d.hue === 'purple') { fillColor = '#1a0e35'; glowColor = '#8b5cf6'; }
+    else                    { fillColor = '#2a2a2a'; glowColor = '#64748b'; }
+
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 10;
+
+    ctx.beginPath();
+    d.verts.forEach((v, i) => {
+      const px = Math.cos(v.a) * v.r;
+      const py = Math.sin(v.a) * v.r;
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    });
+    ctx.closePath();
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  });
+}
+
+function drawParticles(ctx) {
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    if (p.ring) {
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.ringR * (1 - p.life) * 4 + 2, 0, PI2);
+      ctx.stroke();
+    } else {
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 6;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * p.life, 0, PI2);
+      ctx.fill();
+    }
+  });
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+}
+
+// Speed lines (motion blur effect)
+let speedLines = [];
+function initSpeedLines() {
+  speedLines = [];
+  for (let i = 0; i < 18; i++) {
+    speedLines.push({
+      x: rand(0, gameCanvas.width),
+      y: rand(0, gameCanvas.height),
+      len: rand(20, 80),
+      speed: rand(3, 8),
+      alpha: rand(.04, .12),
+    });
+  }
+}
+
+function updateDrawSpeedLines(ctx, dt, vel) {
+  const factor = Math.min(1, vel / 150);
+  speedLines.forEach(l => {
+    l.y += l.speed * dt * 60 * factor;
+    if (l.y > gameCanvas.height + l.len) {
+      l.y = -l.len;
+      l.x = rand(0, gameCanvas.width);
+    }
+    if (factor > .1) {
+      ctx.globalAlpha = l.alpha * factor;
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = .8;
+      ctx.beginPath();
+      ctx.moveTo(l.x, l.y);
+      ctx.lineTo(l.x, l.y + l.len * factor);
+      ctx.stroke();
+    }
+  });
+  ctx.globalAlpha = 1;
+}
+
+// ─── Resize ──────────────────────────────────────────────────
+function resize() {
+  const W = window.innerWidth, H = window.innerHeight;
+  bgCanvas.width = W; bgCanvas.height = H;
+  gameCanvas.width = W; gameCanvas.height = H;
+  initStars();
+  drawNebulae();
+}
+
+// ─── Game Loop ───────────────────────────────────────────────
+function gameLoop(ts) {
+  animFrame = requestAnimationFrame(gameLoop);
+  const dt = Math.min((ts - lastTS) / 1000, .05);
+  lastTS = ts;
+  globalTime += dt;
+
+  // Background always running
+  updateStars(dt, gameState === 'playing' ? 1 + gameTime * .15 : .3);
+  drawBg();
+  drawNebulae();
+
+  if (gameState !== 'playing') return;
+
+  // ── Update ──────────────────────────────────────────────
+  handleKeyboard(dt);
+
+  // Smooth player movement
+  const SMOOTH = 10;
+  const speed = Math.sqrt(PLAYER.vx * PLAYER.vx + PLAYER.vy * PLAYER.vy);
+  PLAYER.vx = lerp(PLAYER.vx, (PLAYER.targetX - PLAYER.x) * SMOOTH, dt * 12);
+  PLAYER.vy = lerp(PLAYER.vy, (PLAYER.targetY - PLAYER.y) * SMOOTH, dt * 12);
+  PLAYER.x += PLAYER.vx * dt;
+  PLAYER.y += PLAYER.vy * dt;
+  PLAYER.rotation += PLAYER.rotSpeed * dt;
+
+  // Trail
+  PLAYER.trail.push({ x: PLAYER.x, y: PLAYER.y });
+  if (PLAYER.trail.length > 12) PLAYER.trail.shift();
+
+  // Screen shake decay
+  PLAYER.shakeX *= .85;
+  PLAYER.shakeY *= .85;
+
+  // Debris
+  debrisTimer++;
+  if (debrisTimer >= spawnInterval()) {
+    spawnDebris();
+    debrisTimer = 0;
+  }
+  debris.forEach(d => {
+    d.x += d.vx;
+    d.y += d.vy * (1 + gameTime * .08);
+    d.rotation += d.rotSpeed;
+  });
+  // Remove off-screen
+  debris = debris.filter(d => d.y < gameCanvas.height + 60 && d.x > -100 && d.x < gameCanvas.width + 100);
+
+  // Particles
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy;
+    p.vy += .15;
+    p.vx *= .97; p.vy *= .97;
+    p.life -= p.decay;
+    if (p.ring) p.life -= p.decay * .3;
+  });
+  particles = particles.filter(p => p.life > 0);
+
+  // Score
+  gameTime += dt;
+  score = Math.floor(gameTime * 100);
+  $('hudScore').textContent = score;
+
+  // Collision check
+  if (checkCollision()) {
+    explode(PLAYER.x, PLAYER.y);
+    PLAYER.alive = false;
+    PLAYER.shakeX = 18; PLAYER.shakeY = 18;
+    triggerGameOver();
+  }
+
+  // ── Draw ─────────────────────────────────────────────────
+  const sx = (Math.random() - .5) * PLAYER.shakeX;
+  const sy = (Math.random() - .5) * PLAYER.shakeY;
+  gCtx.save();
+  gCtx.translate(sx, sy);
+
+  gCtx.clearRect(-50, -50, gameCanvas.width + 100, gameCanvas.height + 100);
+
+  updateDrawSpeedLines(gCtx, dt, Math.abs(PLAYER.vy));
+  drawDebris(gCtx);
+  if (PLAYER.alive) drawPlayer(gCtx);
+  drawParticles(gCtx);
+
+  gCtx.restore();
+
+  // Update best live
+  if (score > bestScore) {
+    bestScore = score;
+    LS.best = bestScore;
+    $('hudBest').textContent = bestScore;
+  }
+}
+
+// ─── Game Lifecycle ─────────────────────────────────────────
+function startGame() {
+  gameState = 'playing';
+  score = 0;
+  gameTime = 0;
+  debrisTimer = 0;
+  debris = [];
+  particles = [];
+  bestScore = LS.best;
+  asteroidVerts = genAsteroidShape(11, PLAYER.radius);
+
+  initPlayer();
+  initSpeedLines();
+
+  startScreen.classList.add('hidden');
+  goScreen.classList.add('hidden');
+  gameCanvas.style.display = 'block';
+  hud.style.display = 'block';
+  mobileHint.style.display = 'block';
+
+  $('hudName').textContent = playerName;
+  $('hudScore').textContent = 0;
+  $('hudBest').textContent = bestScore;
+}
+
+function triggerGameOver() {
+  gameState = 'dead';
+
+  setTimeout(() => {
+    // Update best
+    if (score > LS.best) LS.best = score;
+
+    $('goName').textContent = playerName;
+    $('goScore').textContent = score;
+    $('goBest').textContent = LS.best;
+
+    gameCanvas.style.display = 'none';
+    hud.style.display = 'none';
+    mobileHint.style.display = 'none';
+    goScreen.classList.remove('hidden');
+  }, 900); // slight delay for explosion animation
+}
+
+function goToMenu() {
+  gameState = 'menu';
+  gameCanvas.style.display = 'none';
+  hud.style.display = 'none';
+  mobileHint.style.display = 'none';
+  goScreen.classList.add('hidden');
+  startScreen.classList.remove('hidden');
+  debris = [];
+  particles = [];
+  gCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+}
+
+// ─── UI Events ───────────────────────────────────────────────
+$('btnStart').addEventListener('click', () => {
+  playerName = playerInput.value.trim() || 'ANÔNIMO';
+  LS.name = playerName;
+  startGame();
+});
+
+playerInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('btnStart').click();
+});
+
+$('btnRestart').addEventListener('click', () => {
+  goScreen.classList.add('hidden');
+  gameCanvas.style.display = 'block';
+  hud.style.display = 'block';
+  mobileHint.style.display = 'block';
+  startGame();
+});
+
+$('btnMenu').addEventListener('click', goToMenu);
+
+// Restore name from storage
+if (LS.name) playerInput.value = LS.name;
+
+// ─── Boot ────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  resize();
+  if (gameState === 'playing') initSpeedLines();
+});
+
+resize();
+lastTS = performance.now();
+animFrame = requestAnimationFrame(gameLoop);
+
+// Prevent scroll on mobile
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+document.addEventListener('contextmenu', e => e.preventDefault());
+</script>
+</body>
+</html>
